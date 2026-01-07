@@ -32,7 +32,7 @@ st.markdown("""
         margin-top: 1.5rem;
         margin-bottom: 1rem;
     }
-    .user-card {
+    .user-row {
         background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
         padding: 1.5rem;
         border-radius: 12px;
@@ -42,7 +42,7 @@ st.markdown("""
     }
     .detail-metric {
         background: white;
-        padding: 1rem;
+        padding: 1.5rem;
         border-radius: 8px;
         border: 1px solid #e5e7eb;
         text-align: center;
@@ -56,7 +56,7 @@ st.markdown("""
         letter-spacing: 0.05em;
     }
     .metric-value {
-        font-size: 1.25rem;
+        font-size: 1.5rem;
         font-weight: 700;
         color: #1f2937;
     }
@@ -179,29 +179,42 @@ if 'df_usuarios' in st.session_state:
         st.warning("⚠️ No hay usuarios que coincidan con los filtros.")
     else:
         for idx, row in df.iterrows():
-            with st.expander(f"**Nº {row['Nº']}** • {row['Usuario Maxplayer']} • {row['DNS/Dominio']}", expanded=False):
-                col1, col2, col3 = st.columns([1, 1, 1])
-                
-                with col1:
-                    st.markdown("**👤 Usuario Maxplayer**")
-                    st.code(row['Usuario Maxplayer'], language="text")
-                
-                with col2:
-                    st.markdown("**🔑 Username IPTV**")
-                    st.code(row['Username'], language="text")
-                
-                with col3:
-                    st.markdown("**🔐 Password IPTV**")
-                    st.code(row['Password'], language="text")
-                
-                st.markdown("---")
-                
-                # Botón para cargar detalles
-                if st.button(f"📊 Cargar Detalles", key=f"detail_btn_{idx}", use_container_width=True):
-                    st.session_state[f'load_detail_{idx}'] = True
-                
-                # Mostrar detalles si se cargan
-                if st.session_state.get(f'load_detail_{idx}', False):
+            st.markdown('<div class="user-row">', unsafe_allow_html=True)
+            
+            col_num, col_user, col_user_name, col_pass, col_dns, col_btn = st.columns([0.5, 1.2, 1.2, 1.2, 1.2, 0.7])
+            
+            with col_num:
+                st.markdown(f"**{row['Nº']}**")
+            
+            with col_user:
+                st.markdown("**Usuario**")
+                st.code(row['Usuario Maxplayer'], language="text")
+            
+            with col_user_name:
+                st.markdown("**Username**")
+                st.code(row['Username'], language="text")
+            
+            with col_pass:
+                st.markdown("**Password**")
+                st.code(row['Password'], language="text")
+            
+            with col_dns:
+                st.markdown("**DNS/Dominio**")
+                st.write(row['DNS/Dominio'])
+            
+            with col_btn:
+                st.markdown("**Acción**")
+                if st.button(f"📊 Info", key=f"btn_{idx}", use_container_width=True):
+                    st.session_state[f'show_modal_{idx}'] = True
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            # Modal popup
+            if st.session_state.get(f'show_modal_{idx}', False):
+                with st.container():
+                    st.markdown("---")
+                    st.markdown(f"### 📋 Detalles de {row['Usuario Maxplayer']}")
+                    
                     with st.spinner("⏳ Consultando servidor IPTV..."):
                         detalles = obtener_detalles_usuario(row['host'], row['Username'], row['Password'])
                     
@@ -225,9 +238,11 @@ if 'df_usuarios' in st.session_state:
                         st.markdown(f'<div class="metric-value">🔗 {detalles.get("Conexiones", "Error")}</div>', unsafe_allow_html=True)
                         st.markdown('</div>', unsafe_allow_html=True)
                     
-                    if st.button(f"✕ Cerrar Detalles", key=f"close_detail_{idx}", use_container_width=True):
-                        st.session_state[f'load_detail_{idx}'] = False
-                        st.rerun()
+                    col_close1, col_close2, col_close3 = st.columns([2, 1, 2])
+                    with col_close2:
+                        if st.button(f"✕ Cerrar", key=f"close_{idx}", use_container_width=True):
+                            st.session_state[f'show_modal_{idx}'] = False
+                            st.rerun()
     
     st.divider()
     
