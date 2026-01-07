@@ -41,14 +41,16 @@ def obtener_lista_usuarios_maxplayer():
                 u_iptv = iptv.get('username')
                 p_iptv = iptv.get('password')
                 fqdn = iptv.get('fqdn', 'N/A')
-                host_base = f"http://{iptv.get('fqdn')}:{iptv.get('port')}"
+                puerto = iptv.get('port', '8080')
+                dominio_completo = f"{fqdn}:{puerto}"
+                host_base = f"http://{fqdn}:{puerto}"
                 
                 lista_final.append({
                     "Nº": "",
                     "Usuario Maxplayer": cliente.get('username'),
                     "Username": u_iptv,
                     "Password": p_iptv,
-                    "DNS/Dominio": fqdn,
+                    "DNS/Dominio": dominio_completo,
                     "host": host_base
                 })
         
@@ -142,7 +144,7 @@ if 'df_usuarios' in st.session_state:
                 with col4:
                     st.code(row['Password'], language="text")
                 with col5:
-                    st.write(row['DNS/Dominio'])
+                    st.code(row['DNS/Dominio'], language="text")
                 with col6:
                     if st.button(f"ℹ️", key=f"btn_{idx}", use_container_width=True):
                         st.session_state['selected_user'] = idx
