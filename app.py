@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import pandas as pd
+from datetime import datetime
 
 st.set_page_config(page_title="Lista Usuarios Maxplayer", page_icon="📊", layout="wide")
 
@@ -39,11 +40,37 @@ def obtener_lista_usuarios_maxplayer():
                 iptv = listas[0].get('iptv_info', {})
                 u_iptv = iptv.get('username')
                 p_iptv = iptv.get('password')
+                fqdn = iptv.get('fqdn', 'N/A')
+                
+                # Tiempo de actividad
+                last_access = cliente.get('last_access')
+                if last_access:
+                    try:
+                        fecha_access = datetime.fromtimestamp(int(last_access))
+                        ahora = datetime.now()
+                        diff = ahora - fecha_access
+                        
+                        if diff.days > 0:
+                            tiempo_act = f"Hace {diff.days} días"
+                        elif diff.seconds > 3600:
+                            horas = diff.seconds // 3600
+                            tiempo_act = f"Hace {horas} horas"
+                        elif diff.seconds > 60:
+                            minutos = diff.seconds // 60
+                            tiempo_act = f"Hace {minutos} minutos"
+                        else:
+                            tiempo_act = "Hace poco"
+                    except:
+                        tiempo_act = "N/A"
+                else:
+                    tiempo_act = "Nunca"
                 
                 lista_final.append({
                     "Usuario Maxplayer": cliente.get('username'),
                     "Username": u_iptv,
-                    "Password": p_iptv
+                    "Password": p_iptv,
+                    "DNS/Dominio": fqdn,
+                    "Tiempo de Actividad": tiempo_act
                 })
         
         return pd.DataFrame(lista_final) if lista_final else None
@@ -52,18 +79,52 @@ def obtener_lista_usuarios_maxplayer():
         st.error(f"Error: {str(e)}")
         return None
 
+# Cargar datos
 if st.button("⬇️ Cargar Lista", type="primary"):
     with st.spinner("Obteniendo usuarios..."):
         df = obtener_lista_usuarios_maxplayer()
         if df is not None:
-            st.dataframe(df, use_container_width=True, hide_index=True)
-            
-            csv = df.to_csv(index=False, encoding='utf-8-sig')
-            st.download_button(
-                label="📥 Descargar CSV",
-                data=csv,
-                file_name="usuarios_maxplayer.csv",
-                mime="text/csv"
-            )
+            st.session_state['df_usuarios'] = df
         else:
             st.error("No se pudieron obtener los usuarios.")
+
+# Mostrar datos si existen
+if 'df_usuarios' in st.session_state:
+    df = st.session_state['df_usuarios'].copy()
+    
+    # Selector de dominio
+    dominios = sorted(df['DNS/Dominio'].unique().tolist())
+    dominios_filter = ["Todos"] + dominios
+    
+    col1, col2 = st.columns([2, 2])
+    with col1:
+        dominio_seleccionado = st.selectbox("🌐 Filtrar por Dominio:", dominios_filter)
+    
+    with col2:
+        busqueda = st.text_input("🔍 Buscar usuario:", placeholder="Usuario, Username, Password...")
+    
+    # Filtrar por dominio
+    if dominio_seleccionado != "Todos":
+        df = df[df['DNS/Dominio'] == dominio_seleccionado]
+    
+    # Filtrar por búsqueda
+    if busqueda:
+        mask = df.astype(str).apply(lambda x: x.str.contains(busqueda, case=False, na=False)).any(axis=1)
+        df = df[mask]
+    
+    # Agregar numeración
+    df.insert(0, "Nº", range(1, len(df) + 1))
+    
+    # Mostrar tabla
+    st.dataframe(df, use_container_width=True, hide_index=True)
+    
+    # Descargar CSV
+    csv = df.to_csv(index=False, encoding='utf-8-sig')
+    st.download_button(
+        label="📥 Descargar CSV",
+        data=csv,
+        file_name=f"usuarios_maxplayer_{datetime.now().strftime('%d%m%Y_%H%M%S')}.csv",
+        mime="text/csv"
+    )
+    
+    st.info(f"📊 Total: {len(df)} usuarios")
