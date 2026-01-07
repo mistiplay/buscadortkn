@@ -24,49 +24,7 @@ except:
     st.stop()
 
 URL_API_MAXPLAYER = "https://api.maxplayer.tv/v3/api/public/users"
-
-def obtener_lista_usuarios_maxplayer():
-    try:
-        headers = {"Api-Token": API_TOKEN, "Accept": "application/json"}
-        res = requests.get(URL_API_MAXPLAYER, headers=headers, timeout=10)
-        data = res.json()
-        usuarios = data.get('data', []) if isinstance(data, dict) else data
-        
-        # MUESTRA EL PRIMER USUARIO COMPLETO
-        if usuarios:
-            st.write("**Estructura de un usuario:**")
-            st.json(usuarios[0])
-        
-        # ... resto del código
-
-        
-        lista_final = []
-        
-        for cliente in usuarios:
-            listas = cliente.get('lists', [])
-            if listas:
-                iptv = listas[0].get('iptv_info', {})
-                u_iptv = iptv.get('username')
-                p_iptv = iptv.get('password')
-                fqdn = iptv.get('fqdn', 'N/A')
-                puerto = iptv.get('port', '8080')
-                dominio_completo = f"{fqdn}:{puerto}"
-                host_base = f"http://{fqdn}:{puerto}"
-                
-                lista_final.append({
-                    "id_usuario": cliente.get('username'),
-                    "Usuario Maxplayer": cliente.get('username'),
-                    "Username": u_iptv,
-                    "Password": p_iptv,
-                    "DNS/Dominio": dominio_completo,
-                    "host": host_base
-                })
-        
-        return pd.DataFrame(lista_final) if lista_final else None
-    
-    except Exception as e:
-        st.error(f"Error: {str(e)}")
-        return None
+URL_API_AGENTS = "https://api.maxplayer.tv/v3/api/public/agents"
 
 def obtener_detalles_usuario(host, username, password):
     try:
@@ -94,10 +52,62 @@ def obtener_detalles_usuario(host, username, password):
     except:
         return {"Estado": "Error", "Vence": "-", "Conexiones": "-"}
 
+def obtener_datos_agentes():
+    """Obtiene todos los usuarios recursivamente de agentes y subagentes"""
+    try:
+        headers = {"Api-Token": API_TOKEN, "Accept": "application/json"}
+        res = requests.get(URL_API_AGENTS, headers=headers, timeout=10)
+        data = res.json()
+        
+        agents = data.get('data', []) if isinstance(data, dict) else data
+        
+        lista_final = []
+        
+        def procesar_agente(agente):
+            """Procesa un agente y obtiene sus usuarios y subagentes"""
+            # Obtener usuarios del agente actual
+            usuarios = agente.get('users', [])
+            for usuario in usuarios:
+                listas = usuario.get('lists', [])
+                if listas:
+                    iptv = listas[0].get('iptv_info', {})
+                    u_iptv = iptv.get('username')
+                    p_iptv = iptv.get('password')
+                    fqdn = iptv.get('fqdn', 'N/A')
+                    puerto = iptv.get('port', '8080')
+                    dominio_completo = f"{fqdn}:{puerto}"
+                    host_base = f"http://{fqdn}:{puerto}"
+                    
+                    lista_final.append({
+                        "id_usuario": usuario.get('username'),
+                        "Usuario Maxplayer": usuario.get('username'),
+                        "Username": u_iptv,
+                        "Password": p_iptv,
+                        "DNS/Dominio": dominio_completo,
+                        "Agente": agente.get('user', 'N/A'),
+                        "host": host_base
+                    })
+            
+            # Procesar subagentes recursivamente
+            subagentes = agente.get('agents', [])
+            if subagentes:
+                for subagente in subagentes:
+                    procesar_agente(subagente)
+        
+        # Procesar todos los agentes principales
+        for agente in agents:
+            procesar_agente(agente)
+        
+        return pd.DataFrame(lista_final) if lista_final else None
+    
+    except Exception as e:
+        st.error(f"Error: {str(e)}")
+        return None
+
 # Cargar datos
 if st.button("⬇️ Cargar Lista", type="primary"):
     with st.spinner("Obteniendo usuarios..."):
-        df = obtener_lista_usuarios_maxplayer()
+        df = obtener_datos_agentes()
         if df is not None:
             st.session_state['df_usuarios_completo'] = df
         else:
@@ -141,7 +151,6 @@ if 'df_usuarios_completo' in st.session_state:
         if len(df) == 0:
             st.warning("No hay usuarios que coincidan.")
         else:
-            # Tabla con botones
             for idx, row in df.iterrows():
                 col1, col2, col3, col4, col5, col6 = st.columns([0.3, 1, 1, 1, 1, 0.5])
                 
@@ -164,10 +173,10 @@ if 'df_usuarios_completo' in st.session_state:
         
         if 'selected_user_id' in st.session_state:
             usuario_id = st.session_state['selected_user_id']
-            # Buscar en el dataframe completo usando el id
             row = df_completo[df_completo['id_usuario'] == usuario_id].iloc[0]
             
             st.write(f"**Usuario:** {row['Usuario Maxplayer']}")
+            st.write(f"**Agente:** {row['Agente']}")
             
             with st.spinner("Cargando..."):
                 detalles = obtener_detalles_usuario(row['host'], row['Username'], row['Password'])
@@ -193,25 +202,5 @@ if 'df_usuarios_completo' in st.session_state:
         file_name=f"usuarios_maxplayer_{datetime.now().strftime('%d%m%Y_%H%M%S')}.csv",
         mime="text/csv"
     )
-
-        st.divider()
-    
-    # AGREGAR AQUI
-    if st.button("🔍 Ver JSON de Agentes"):
-        headers = {"Api-Token": API_TOKEN, "Accept": "application/json"}
-        res = requests.get("https://api.maxplayer.tv/v3/api/public/agents", headers=headers, timeout=10)
-        data = res.json()
-        st.json(data)
-    
-    # Descargar CSV
-    df_display = df.drop(['host', 'id_usuario'], axis=1)
-    csv = df_display.to_csv(index=False, encoding='utf-8-sig')
-    st.download_button(
-        label="📥 Descargar CSV",
-        data=csv,
-        file_name=f"usuarios_maxplayer_{datetime.now().strftime('%d%m%Y_%H%M%S')}.csv",
-        mime="text/csv"
-    )
     
     st.info(f"📊 Total: {len(df)} usuarios")
-
