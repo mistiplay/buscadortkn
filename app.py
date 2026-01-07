@@ -193,5 +193,25 @@ if 'df_usuarios_completo' in st.session_state:
         file_name=f"usuarios_maxplayer_{datetime.now().strftime('%d%m%Y_%H%M%S')}.csv",
         mime="text/csv"
     )
+
+        st.divider()
+    
+    # AGREGAR AQUI
+    if st.button("🔍 Ver JSON de Agentes"):
+        headers = {"Api-Token": API_TOKEN, "Accept": "application/json"}
+        res = requests.get("https://api.maxplayer.tv/v3/api/public/agents", headers=headers, timeout=10)
+        data = res.json()
+        st.json(data)
+    
+    # Descargar CSV
+    df_display = df.drop(['host', 'id_usuario'], axis=1)
+    csv = df_display.to_csv(index=False, encoding='utf-8-sig')
+    st.download_button(
+        label="📥 Descargar CSV",
+        data=csv,
+        file_name=f"usuarios_maxplayer_{datetime.now().strftime('%d%m%Y_%H%M%S')}.csv",
+        mime="text/csv"
+    )
     
     st.info(f"📊 Total: {len(df)} usuarios")
+
