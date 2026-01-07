@@ -86,33 +86,14 @@ def obtener_detalles_usuario(host, username, password):
     except:
         return {"Estado": "Error", "Vence": "-", "Conexiones": "-"}
 
-col1, col2, col3 = st.columns([1, 1, 1])
-
 # Cargar datos
-with col1:
-    if st.button("⬇️ Cargar Lista", type="primary", use_container_width=True):
-        with st.spinner("Obteniendo usuarios..."):
-            df = obtener_lista_usuarios_maxplayer()
-            if df is not None:
-                st.session_state['df_usuarios_completo'] = df
-            else:
-                st.error("No se pudieron obtener los usuarios.")
-
-# Ver JSON USERS
-with col2:
-    if st.button("🔍 Ver JSON USERS", use_container_width=True):
-        headers = {"Api-Token": API_TOKEN, "Accept": "application/json"}
-        res = requests.get(URL_API_MAXPLAYER, headers=headers, timeout=10)
-        data = res.json()
-        st.json(data)
-
-# Ver JSON AGENTS
-with col3:
-    if st.button("🔍 Ver JSON AGENTS", use_container_width=True):
-        headers = {"Api-Token": API_TOKEN, "Accept": "application/json"}
-        res = requests.get("https://api.maxplayer.tv/v3/api/public/agents", headers=headers, timeout=10)
-        data = res.json()
-        st.json(data)
+if st.button("⬇️ Cargar Lista", type="primary"):
+    with st.spinner("Obteniendo usuarios..."):
+        df = obtener_lista_usuarios_maxplayer()
+        if df is not None:
+            st.session_state['df_usuarios_completo'] = df
+        else:
+            st.error("No se pudieron obtener los usuarios.")
 
 # Mostrar datos si existen
 if 'df_usuarios_completo' in st.session_state:
