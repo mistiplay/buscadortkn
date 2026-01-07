@@ -32,6 +32,14 @@ def obtener_lista_usuarios_maxplayer():
         data = res.json()
         usuarios = data.get('data', []) if isinstance(data, dict) else data
         
+        # MUESTRA EL PRIMER USUARIO COMPLETO
+        if usuarios:
+            st.write("**Estructura de un usuario:**")
+            st.json(usuarios[0])
+        
+        # ... resto del código
+
+        
         lista_final = []
         
         for cliente in usuarios:
