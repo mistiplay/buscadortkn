@@ -120,50 +120,49 @@ if 'df_usuarios' in st.session_state:
     # Agregar numeración
     df.insert(0, "Nº", range(1, len(df) + 1))
     
-    # Mostrar tabla sin host
-    df_display = df.drop('host', axis=1)
-    st.dataframe(df_display, use_container_width=True, hide_index=True)
+    st.subheader("📋 Usuarios")
     
-    st.divider()
-    
-    # Botones de detalles para cada usuario
-    st.subheader("📋 Detalles de Usuarios")
+    # Crear tabla con botones
     for idx, row in df.iterrows():
-        col1, col2, col3, col4 = st.columns([1, 2, 2, 1])
+        col1, col2, col3, col4, col5, col6 = st.columns([0.5, 1.5, 1.5, 1.5, 1.5, 0.8])
         
         with col1:
-            st.write(f"**Nº {row['Nº']}**")
-        
+            st.write(f"**{row['Nº']}**")
         with col2:
-            st.write(f"**{row['Usuario Maxplayer']}**")
-        
+            st.write(row['Usuario Maxplayer'])
         with col3:
-            st.write(f"DNS: {row['DNS/Dominio']}")
-        
+            st.write(row['Username'])
         with col4:
-            if st.button(f"ℹ️ Detalles", key=f"btn_{idx}"):
-                st.session_state[f'expand_{idx}'] = True
+            st.write(row['Password'])
+        with col5:
+            st.write(row['DNS/Dominio'])
+        with col6:
+            if st.button(f"ℹ️", key=f"btn_{idx}"):
+                st.session_state[f'expand_{idx}'] = not st.session_state.get(f'expand_{idx}', False)
         
         # Mostrar detalles si se expandió
         if st.session_state.get(f'expand_{idx}', False):
-            with st.spinner(f"Obteniendo detalles de {row['Usuario Maxplayer']}..."):
+            with st.spinner(f"Obteniendo detalles..."):
                 detalles = obtener_detalles_usuario(row['host'], row['Username'], row['Password'])
                 
-                det_col1, det_col2, det_col3 = st.columns(3)
+                det_col1, det_col2, det_col3, det_col4, det_col5, det_col6 = st.columns([0.5, 1.5, 1.5, 1.5, 1.5, 0.8])
                 with det_col1:
-                    st.metric("Estado", detalles.get("Estado", "Error"))
+                    st.write("")
                 with det_col2:
-                    st.metric("Vencimiento", detalles.get("Vence", "Error"))
+                    st.metric("Estado", detalles.get("Estado", "Error"), label_visibility="collapsed")
                 with det_col3:
-                    st.metric("Conexiones", detalles.get("Conexiones", "Error"))
-            
-            if st.button(f"✕ Cerrar", key=f"close_{idx}"):
-                st.session_state[f'expand_{idx}'] = False
-                st.rerun()
-        
-        st.divider()
+                    st.metric("Vence", detalles.get("Vence", "Error"), label_visibility="collapsed")
+                with det_col4:
+                    st.metric("Conexiones", detalles.get("Conexiones", "Error"), label_visibility="collapsed")
+                with det_col5:
+                    st.write("")
+                with det_col6:
+                    st.write("")
+    
+    st.divider()
     
     # Descargar CSV
+    df_display = df.drop('host', axis=1)
     csv = df_display.to_csv(index=False, encoding='utf-8-sig')
     st.download_button(
         label="📥 Descargar CSV",
