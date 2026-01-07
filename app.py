@@ -15,55 +15,7 @@ header {visibility: hidden;}
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-# Estilos personalizados
-st.markdown("""
-<style>
-    .main-header {
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: #1f2937;
-        margin-bottom: 1.5rem;
-        letter-spacing: -0.02em;
-    }
-    .section-header {
-        font-size: 1.3rem;
-        font-weight: 600;
-        color: #374151;
-        margin-top: 1.5rem;
-        margin-bottom: 1rem;
-    }
-    .user-row {
-        background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
-        padding: 1.5rem;
-        border-radius: 12px;
-        border-left: 4px solid #3b82f6;
-        margin-bottom: 1rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    .detail-metric {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 8px;
-        border: 1px solid #e5e7eb;
-        text-align: center;
-    }
-    .metric-label {
-        font-size: 0.85rem;
-        color: #6b7280;
-        font-weight: 600;
-        margin-bottom: 0.5rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-    .metric-value {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: #1f2937;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-st.markdown('<h1 class="main-header">📊 Lista de Usuarios Maxplayer</h1>', unsafe_allow_html=True)
+st.title("📊 Lista de Usuarios Maxplayer")
 
 try:
     API_TOKEN = st.secrets["API_TOKEN"]
@@ -92,6 +44,7 @@ def obtener_lista_usuarios_maxplayer():
                 host_base = f"http://{iptv.get('fqdn')}:{iptv.get('port')}"
                 
                 lista_final.append({
+                    "Nº": "",
                     "Usuario Maxplayer": cliente.get('username'),
                     "Username": u_iptv,
                     "Password": p_iptv,
@@ -102,11 +55,10 @@ def obtener_lista_usuarios_maxplayer():
         return pd.DataFrame(lista_final) if lista_final else None
     
     except Exception as e:
-        st.error(f"❌ Error: {str(e)}")
+        st.error(f"Error: {str(e)}")
         return None
 
 def obtener_detalles_usuario(host, username, password):
-    """Obtiene vencimiento y conexiones del servidor IPTV"""
     try:
         url = f"{host}/player_api.php?username={username}&password={password}"
         response = requests.get(url, timeout=10)
@@ -128,134 +80,105 @@ def obtener_detalles_usuario(host, username, password):
                 "Conexiones": conexiones
             }
         else:
-            return {"Estado": "⚠️ Error", "Vence": "-", "Conexiones": "-"}
+            return {"Estado": "Error", "Vence": "-", "Conexiones": "-"}
     except:
-        return {"Estado": "⚠️ Error", "Vence": "-", "Conexiones": "-"}
+        return {"Estado": "Error", "Vence": "-", "Conexiones": "-"}
 
 # Cargar datos
-col_btn, col_space = st.columns([1, 5])
-with col_btn:
-    if st.button("⬇️ Cargar Lista", type="primary", use_container_width=True):
-        with st.spinner("Obteniendo usuarios de Maxplayer..."):
-            df = obtener_lista_usuarios_maxplayer()
-            if df is not None:
-                st.session_state['df_usuarios'] = df
-            else:
-                st.error("❌ No se pudieron obtener los usuarios.")
+if st.button("⬇️ Cargar Lista", type="primary"):
+    with st.spinner("Obteniendo usuarios..."):
+        df = obtener_lista_usuarios_maxplayer()
+        if df is not None:
+            st.session_state['df_usuarios'] = df
+        else:
+            st.error("No se pudieron obtener los usuarios.")
 
 # Mostrar datos si existen
 if 'df_usuarios' in st.session_state:
     df = st.session_state['df_usuarios'].copy()
     
     # Filtros
-    st.markdown('<h2 class="section-header">🔍 Filtros</h2>', unsafe_allow_html=True)
     col_filt1, col_filt2 = st.columns([2, 2])
     
     dominios = sorted(df['DNS/Dominio'].unique().tolist())
-    dominios_filter = ["🌐 Todos"] + [f"🌐 {d}" for d in dominios]
+    dominios_filter = ["Todos"] + dominios
     
     with col_filt1:
-        dominio_seleccionado = st.selectbox("Filtrar por Dominio:", dominios_filter, key="sel_dominio")
+        dominio_seleccionado = st.selectbox("🌐 Filtrar por Dominio:", dominios_filter)
     
     with col_filt2:
-        busqueda = st.text_input("🔍 Buscar usuario:", placeholder="Usuario, Username, Password, DNS...")
+        busqueda = st.text_input("🔍 Buscar usuario:", placeholder="Usuario, Username, Password...")
     
     # Aplicar filtros
-    if dominio_seleccionado != "🌐 Todos":
-        dominio_limpio = dominio_seleccionado.replace("🌐 ", "")
-        df = df[df['DNS/Dominio'] == dominio_limpio]
+    if dominio_seleccionado != "Todos":
+        df = df[df['DNS/Dominio'] == dominio_seleccionado]
     
     if busqueda:
         mask = df.astype(str).apply(lambda x: x.str.contains(busqueda, case=False, na=False)).any(axis=1)
         df = df[mask]
     
     # Agregar numeración
-    df.insert(0, "Nº", range(1, len(df) + 1))
+    df['Nº'] = range(1, len(df) + 1)
     
-    # Mostrar usuarios
-    st.markdown('<h2 class="section-header">👥 Usuarios</h2>', unsafe_allow_html=True)
+    # Layout: Tabla izquierda + Detalles derecha
+    col_tabla, col_detalles = st.columns([2, 1])
     
-    if len(df) == 0:
-        st.warning("⚠️ No hay usuarios que coincidan con los filtros.")
-    else:
-        for idx, row in df.iterrows():
-            st.markdown('<div class="user-row">', unsafe_allow_html=True)
+    with col_tabla:
+        st.subheader("👥 Usuarios")
+        
+        if len(df) == 0:
+            st.warning("No hay usuarios que coincidan.")
+        else:
+            # Tabla con botones
+            for idx, row in df.iterrows():
+                col1, col2, col3, col4, col5, col6 = st.columns([0.3, 1, 1, 1, 1, 0.5])
+                
+                with col1:
+                    st.write(f"**{row['Nº']}**")
+                with col2:
+                    st.code(row['Usuario Maxplayer'], language="text")
+                with col3:
+                    st.code(row['Username'], language="text")
+                with col4:
+                    st.code(row['Password'], language="text")
+                with col5:
+                    st.write(row['DNS/Dominio'])
+                with col6:
+                    if st.button(f"ℹ️", key=f"btn_{idx}", use_container_width=True):
+                        st.session_state['selected_user'] = idx
+    
+    with col_detalles:
+        st.subheader("📊 Detalles")
+        
+        if 'selected_user' in st.session_state:
+            idx = st.session_state['selected_user']
+            row = df.iloc[idx]
             
-            col_num, col_user, col_user_name, col_pass, col_dns, col_btn = st.columns([0.5, 1.2, 1.2, 1.2, 1.2, 0.7])
+            st.write(f"**Usuario:** {row['Usuario Maxplayer']}")
             
-            with col_num:
-                st.markdown(f"**{row['Nº']}**")
+            with st.spinner("Cargando..."):
+                detalles = obtener_detalles_usuario(row['host'], row['Username'], row['Password'])
             
-            with col_user:
-                st.markdown("**Usuario**")
-                st.code(row['Usuario Maxplayer'], language="text")
+            st.metric("Estado", detalles.get("Estado", "Error"))
+            st.metric("Vencimiento", detalles.get("Vence", "Error"))
+            st.metric("Conexiones", detalles.get("Conexiones", "Error"))
             
-            with col_user_name:
-                st.markdown("**Username**")
-                st.code(row['Username'], language="text")
-            
-            with col_pass:
-                st.markdown("**Password**")
-                st.code(row['Password'], language="text")
-            
-            with col_dns:
-                st.markdown("**DNS/Dominio**")
-                st.write(row['DNS/Dominio'])
-            
-            with col_btn:
-                st.markdown("**Acción**")
-                if st.button(f"📊 Info", key=f"btn_{idx}", use_container_width=True):
-                    st.session_state[f'show_modal_{idx}'] = True
-            
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            # Modal popup
-            if st.session_state.get(f'show_modal_{idx}', False):
-                with st.container():
-                    st.markdown("---")
-                    st.markdown(f"### 📋 Detalles de {row['Usuario Maxplayer']}")
-                    
-                    with st.spinner("⏳ Consultando servidor IPTV..."):
-                        detalles = obtener_detalles_usuario(row['host'], row['Username'], row['Password'])
-                    
-                    col_det1, col_det2, col_det3 = st.columns(3)
-                    
-                    with col_det1:
-                        st.markdown('<div class="detail-metric">', unsafe_allow_html=True)
-                        st.markdown(f'<div class="metric-label">Estado</div>', unsafe_allow_html=True)
-                        st.markdown(f'<div class="metric-value">{detalles.get("Estado", "Error")}</div>', unsafe_allow_html=True)
-                        st.markdown('</div>', unsafe_allow_html=True)
-                    
-                    with col_det2:
-                        st.markdown('<div class="detail-metric">', unsafe_allow_html=True)
-                        st.markdown(f'<div class="metric-label">Vencimiento</div>', unsafe_allow_html=True)
-                        st.markdown(f'<div class="metric-value">📅 {detalles.get("Vence", "Error")}</div>', unsafe_allow_html=True)
-                        st.markdown('</div>', unsafe_allow_html=True)
-                    
-                    with col_det3:
-                        st.markdown('<div class="detail-metric">', unsafe_allow_html=True)
-                        st.markdown(f'<div class="metric-label">Conexiones</div>', unsafe_allow_html=True)
-                        st.markdown(f'<div class="metric-value">🔗 {detalles.get("Conexiones", "Error")}</div>', unsafe_allow_html=True)
-                        st.markdown('</div>', unsafe_allow_html=True)
-                    
-                    col_close1, col_close2, col_close3 = st.columns([2, 1, 2])
-                    with col_close2:
-                        if st.button(f"✕ Cerrar", key=f"close_{idx}", use_container_width=True):
-                            st.session_state[f'show_modal_{idx}'] = False
-                            st.rerun()
+            if st.button("✕ Cerrar"):
+                st.session_state.pop('selected_user', None)
+                st.rerun()
+        else:
+            st.info("Selecciona un usuario para ver detalles")
     
     st.divider()
     
     # Descargar CSV
-    st.markdown('<h2 class="section-header">📥 Exportar</h2>', unsafe_allow_html=True)
     df_display = df.drop('host', axis=1)
     csv = df_display.to_csv(index=False, encoding='utf-8-sig')
     st.download_button(
         label="📥 Descargar CSV",
         data=csv,
         file_name=f"usuarios_maxplayer_{datetime.now().strftime('%d%m%Y_%H%M%S')}.csv",
-        mime="text/csv",
-        use_container_width=True
+        mime="text/csv"
     )
     
-    st.info(f"📊 **Total: {len(df)} usuarios** | 🌐 Dominio: {dominio_seleccionado}")
+    st.info(f"📊 Total: {len(df)} usuarios")
