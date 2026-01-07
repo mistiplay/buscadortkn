@@ -41,12 +41,14 @@ def obtener_lista_usuarios_maxplayer():
                 u_iptv = iptv.get('username')
                 p_iptv = iptv.get('password')
                 fqdn = iptv.get('fqdn', 'N/A')
+                host_base = f"http://{iptv.get('fqdn')}:{iptv.get('port')}"
                 
                 lista_final.append({
                     "Usuario Maxplayer": cliente.get('username'),
                     "Username": u_iptv,
                     "Password": p_iptv,
-                    "DNS/Dominio": fqdn
+                    "DNS/Dominio": fqdn,
+                    "host": host_base
                 })
         
         return pd.DataFrame(lista_final) if lista_final else None
@@ -54,6 +56,33 @@ def obtener_lista_usuarios_maxplayer():
     except Exception as e:
         st.error(f"Error: {str(e)}")
         return None
+
+def obtener_detalles_usuario(host, username, password):
+    """Obtiene vencimiento y conexiones del servidor IPTV"""
+    try:
+        url = f"{host}/player_api.php?username={username}&password={password}"
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            info = data.get('user_info', {})
+            ts = info.get('exp_date')
+            
+            fecha = "Ilimitada"
+            if ts and str(ts) != 'null':
+                fecha = datetime.fromtimestamp(int(ts)).strftime('%d/%m/%Y')
+            
+            conexiones = f"{info.get('active_cons', 0)}/{info.get('max_connections', 0)}"
+            estado = "✅ Activa" if info.get('status') == 'Active' else "❌ Inactiva"
+            
+            return {
+                "Estado": estado,
+                "Vence": fecha,
+                "Conexiones": conexiones
+            }
+        else:
+            return {"Error": "No se pudo conectar"}
+    except:
+        return {"Error": "Error de conexión"}
 
 # Cargar datos
 if st.button("⬇️ Cargar Lista", type="primary"):
@@ -91,11 +120,51 @@ if 'df_usuarios' in st.session_state:
     # Agregar numeración
     df.insert(0, "Nº", range(1, len(df) + 1))
     
-    # Mostrar tabla
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    # Mostrar tabla sin host
+    df_display = df.drop('host', axis=1)
+    st.dataframe(df_display, use_container_width=True, hide_index=True)
+    
+    st.divider()
+    
+    # Botones de detalles para cada usuario
+    st.subheader("📋 Detalles de Usuarios")
+    for idx, row in df.iterrows():
+        col1, col2, col3, col4 = st.columns([1, 2, 2, 1])
+        
+        with col1:
+            st.write(f"**Nº {row['Nº']}**")
+        
+        with col2:
+            st.write(f"**{row['Usuario Maxplayer']}**")
+        
+        with col3:
+            st.write(f"DNS: {row['DNS/Dominio']}")
+        
+        with col4:
+            if st.button(f"ℹ️ Detalles", key=f"btn_{idx}"):
+                st.session_state[f'expand_{idx}'] = True
+        
+        # Mostrar detalles si se expandió
+        if st.session_state.get(f'expand_{idx}', False):
+            with st.spinner(f"Obteniendo detalles de {row['Usuario Maxplayer']}..."):
+                detalles = obtener_detalles_usuario(row['host'], row['Username'], row['Password'])
+                
+                det_col1, det_col2, det_col3 = st.columns(3)
+                with det_col1:
+                    st.metric("Estado", detalles.get("Estado", "Error"))
+                with det_col2:
+                    st.metric("Vencimiento", detalles.get("Vence", "Error"))
+                with det_col3:
+                    st.metric("Conexiones", detalles.get("Conexiones", "Error"))
+            
+            if st.button(f"✕ Cerrar", key=f"close_{idx}"):
+                st.session_state[f'expand_{idx}'] = False
+                st.rerun()
+        
+        st.divider()
     
     # Descargar CSV
-    csv = df.to_csv(index=False, encoding='utf-8-sig')
+    csv = df_display.to_csv(index=False, encoding='utf-8-sig')
     st.download_button(
         label="📥 Descargar CSV",
         data=csv,
