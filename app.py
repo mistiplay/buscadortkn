@@ -32,14 +32,6 @@ def obtener_lista_usuarios_maxplayer():
         data = res.json()
         usuarios = data.get('data', []) if isinstance(data, dict) else data
         
-        # VER ESTRUCTURA COMPLETA DEL PRIMER USUARIO
-        if usuarios:
-            st.write("📋 Estructura de usuario:")
-            st.json(usuarios[0])  # Muestra todo el JSON
-        
-        # ... resto del código
-
-        
         lista_final = []
         
         for cliente in usuarios:
@@ -50,35 +42,11 @@ def obtener_lista_usuarios_maxplayer():
                 p_iptv = iptv.get('password')
                 fqdn = iptv.get('fqdn', 'N/A')
                 
-                # Tiempo de actividad
-                last_access = cliente.get('last_access')
-                if last_access:
-                    try:
-                        fecha_access = datetime.fromtimestamp(int(last_access))
-                        ahora = datetime.now()
-                        diff = ahora - fecha_access
-                        
-                        if diff.days > 0:
-                            tiempo_act = f"Hace {diff.days} días"
-                        elif diff.seconds > 3600:
-                            horas = diff.seconds // 3600
-                            tiempo_act = f"Hace {horas} horas"
-                        elif diff.seconds > 60:
-                            minutos = diff.seconds // 60
-                            tiempo_act = f"Hace {minutos} minutos"
-                        else:
-                            tiempo_act = "Hace poco"
-                    except:
-                        tiempo_act = "N/A"
-                else:
-                    tiempo_act = "Nunca"
-                
                 lista_final.append({
                     "Usuario Maxplayer": cliente.get('username'),
                     "Username": u_iptv,
                     "Password": p_iptv,
-                    "DNS/Dominio": fqdn,
-                    "Tiempo de Actividad": tiempo_act
+                    "DNS/Dominio": fqdn
                 })
         
         return pd.DataFrame(lista_final) if lista_final else None
