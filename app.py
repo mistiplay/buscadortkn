@@ -46,7 +46,7 @@ def obtener_lista_usuarios_maxplayer():
                 host_base = f"http://{fqdn}:{puerto}"
                 
                 lista_final.append({
-                    "Nº": "",
+                    "id_usuario": cliente.get('username'),
                     "Usuario Maxplayer": cliente.get('username'),
                     "Username": u_iptv,
                     "Password": p_iptv,
@@ -91,13 +91,14 @@ if st.button("⬇️ Cargar Lista", type="primary"):
     with st.spinner("Obteniendo usuarios..."):
         df = obtener_lista_usuarios_maxplayer()
         if df is not None:
-            st.session_state['df_usuarios'] = df
+            st.session_state['df_usuarios_completo'] = df
         else:
             st.error("No se pudieron obtener los usuarios.")
 
 # Mostrar datos si existen
-if 'df_usuarios' in st.session_state:
-    df = st.session_state['df_usuarios'].copy()
+if 'df_usuarios_completo' in st.session_state:
+    df_completo = st.session_state['df_usuarios_completo'].copy()
+    df = df_completo.copy()
     
     # Filtros
     col_filt1, col_filt2 = st.columns([2, 2])
@@ -120,6 +121,7 @@ if 'df_usuarios' in st.session_state:
         df = df[mask]
     
     # Agregar numeración
+    df = df.reset_index(drop=True)
     df['Nº'] = range(1, len(df) + 1)
     
     # Layout: Tabla izquierda + Detalles derecha
@@ -146,15 +148,16 @@ if 'df_usuarios' in st.session_state:
                 with col5:
                     st.code(row['DNS/Dominio'], language="text")
                 with col6:
-                    if st.button(f"ℹ️", key=f"btn_{idx}", use_container_width=True):
-                        st.session_state['selected_user'] = idx
+                    if st.button(f"ℹ️", key=f"btn_{row['id_usuario']}", use_container_width=True):
+                        st.session_state['selected_user_id'] = row['id_usuario']
     
     with col_detalles:
         st.subheader("📊 Detalles")
         
-        if 'selected_user' in st.session_state:
-            idx = st.session_state['selected_user']
-            row = df.iloc[idx]
+        if 'selected_user_id' in st.session_state:
+            usuario_id = st.session_state['selected_user_id']
+            # Buscar en el dataframe completo usando el id
+            row = df_completo[df_completo['id_usuario'] == usuario_id].iloc[0]
             
             st.write(f"**Usuario:** {row['Usuario Maxplayer']}")
             
@@ -166,7 +169,7 @@ if 'df_usuarios' in st.session_state:
             st.metric("Conexiones", detalles.get("Conexiones", "Error"))
             
             if st.button("✕ Cerrar"):
-                st.session_state.pop('selected_user', None)
+                st.session_state.pop('selected_user_id', None)
                 st.rerun()
         else:
             st.info("Selecciona un usuario para ver detalles")
@@ -174,7 +177,7 @@ if 'df_usuarios' in st.session_state:
     st.divider()
     
     # Descargar CSV
-    df_display = df.drop('host', axis=1)
+    df_display = df.drop(['host', 'id_usuario'], axis=1)
     csv = df_display.to_csv(index=False, encoding='utf-8-sig')
     st.download_button(
         label="📥 Descargar CSV",
